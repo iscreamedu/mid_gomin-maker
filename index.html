@@ -342,7 +342,8 @@ function htmlToLines(root, fromPaste){
     if(fw){ const bd=fw==='bold'||fw==='bolder'||parseInt(fw)>=600; nb=(bd&&(b==='y'||b==='r'))?b:bd; }
     else if(tag==='B'||tag==='STRONG'||/^H[1-6]$/.test(tag)){ if(b!=='y'&&b!=='r') nb=true; }
     { const bg=n.style&&n.style.backgroundColor; let col=n.style&&n.style.color; if(!col&&tag==='FONT') col=n.getAttribute('color');
-      if(tag==='MARK'||(bg&&bg!=='transparent'&&!/rgba\(.*,\s*0\)/.test(bg))) nb='y'; else if(col&&isRed(col)) nb='r'; }
+      if(!fromPaste&&(tag==='MARK'||(bg&&bg!=='transparent'&&!/rgba\(.*,\s*0\)/.test(bg)))) nb='y'; else if(col&&isRed(col)) nb='r'; }
+    if(fromPaste) nb=false; // 붙여넣기는 서식(굵게·형광펜·빨간색) 모두 제거, 글자만 입력
     if(block && cur().length) nl();
     const before=lines.length;
     for(const c of n.childNodes) walk(c,nb);
@@ -473,7 +474,8 @@ function layout(){
     it.bubH=60+Math.max(1,it.body.length)*32;
     it.qH=Math.max(19+it.bubH,190);
     it.aTop=it.qTop+it.qH+30;
-    it.greet=wrap(rteLines(s.greet),579,22,-0.44,bodyFont,false);
+    it.greet=wrap(rteLines(s.greet),666,22,-0.44,bodyFont,false); // 답변 박스 글자 폭(666)까지 한 줄 허용, 넘으면 줄바꿈
+    { const mw=Math.max(0,...it.greet.map(l=>lineW(l,22,bodyFont))); it.gW=it.greet.length>1?731:Math.min(731,Math.max(636,Math.ceil(mw)+32+25)); } // 말풍선: 오른쪽 끝 고정, 한 줄이면 글자 길이에 맞춰 확장, 두 줄이면 답변 박스와 같은 폭(왼쪽 끝 맞춤)
     it.gH=Math.max(103,Math.max(1,it.greet.length)*32+39);
     it.boxes=s.ans.map(a=>{ const l=wrap(rteLines(a),666,22,-0.44,bodyFont,false); return {l,h:52+Math.max(1,l.length)*32}; });
     it.bTop=Math.max(155,22+it.gH+30);
@@ -559,8 +561,8 @@ function render(){
     c.drawImage(IMG.qtail,bx-17,by);
     drawVL(c,it.body,bx+30,by+30,32,22,bodyFont,'#000');
     // 답변
-    const ax=x0+323, ay=it.aTop+22;
-    c.save(); shadow(c,'rgba(160,160,160,.25)',0,10,12); c.fillStyle='#feffb8'; greetBubble(c,ax,ay,636,it.gH); c.fill(); c.restore();
+    const ax=x0+959-it.gW, ay=it.aTop+22;
+    c.save(); shadow(c,'rgba(160,160,160,.25)',0,10,12); c.fillStyle='#feffb8'; greetBubble(c,ax,ay,it.gW,it.gH); c.fill(); c.restore();
     drawVL(c,it.greet,ax+32,ay+(it.gH-Math.max(1,it.greet.length)*32)/2,32,22,bodyFont,'#000');
     let yy=it.aTop+it.bTop;
     it.boxes.forEach(b=>{ c.save(); shadow(c,'rgba(160,160,160,.3)',0,10,10); c.fillStyle='#feffb8'; rrect(c,x0+228,yy,731,b.h,20); c.fill(); c.restore();
@@ -878,6 +880,7 @@ $('#helpBody').innerHTML=`
   const prev=loadState();
   if(prev&&hasContent(prev)){ state=blankState(); state.issue=''; state.cred=prev.cred||DEF_CRED; state.disc=prev.disc==null?null:prev.disc; state.footer=prev.footer||null; }
   else if(prev){ state=prev; state.issue=''; }
+  state.cred=DEF_CRED; // 시작할 때 상담사 자격은 항상 기본 문구로 초기화
   state.stories=fix2(state.stories); buildForm(); render();
   document.fonts.ready.then(async()=>{ await detectFonts(); updFontWarn(); render(); });
 })();
