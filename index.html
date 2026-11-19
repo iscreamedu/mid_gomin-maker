@@ -474,8 +474,9 @@ function layout(){
     it.bubH=60+Math.max(1,it.body.length)*32;
     it.qH=Math.max(19+it.bubH,190);
     it.aTop=it.qTop+it.qH+30;
-    it.greet=wrap(rteLines(s.greet),666,22,-0.44,bodyFont,false); // 답변 박스 글자 폭(666)까지 한 줄 허용, 넘으면 줄바꿈
-    { const mw=Math.max(0,...it.greet.map(l=>lineW(l,22,bodyFont))); it.gW=it.greet.length>1?731:Math.min(731,Math.max(636,Math.ceil(mw)+32+25)); } // 말풍선: 오른쪽 끝 고정, 한 줄이면 글자 길이에 맞춰 확장, 두 줄이면 답변 박스와 같은 폭(왼쪽 끝 맞춤)
+    // 인사말 말풍선: 고정 폭 없이 좌우 여백(GP)으로 결정. 오른쪽 끝은 답변 박스(BOX_R)에 맞추고, 최대 폭은 답변 박스 폭(BOX_R-BOX_L)
+    it.greet=wrap(rteLines(s.greet),(BOX_R-BOX_L)-2*GP,22,-0.44,bodyFont,false);
+    { const mw=Math.max(0,...it.greet.map(l=>lineW(l,22,bodyFont))); it.gW=it.greet.length>1?(BOX_R-BOX_L):Math.ceil(mw)+2*GP; }
     it.gH=Math.max(103,Math.max(1,it.greet.length)*32+39);
     it.boxes=s.ans.map(a=>{ const l=wrap(rteLines(a),666,22,-0.44,bodyFont,false); return {l,h:52+Math.max(1,l.length)*32}; });
     it.bTop=Math.max(155,22+it.gH+30);
@@ -491,6 +492,7 @@ function layout(){
   let H=footerY+Hf-FOOT_CUT; if(H%2) H+=1;
   return {items,footerY,cred,note,FT,Hf,H};
 }
+const BOX_L=228, BOX_R=959, GP=32; // 답변 박스 좌·우 끝(x0 기준), 인사말 말풍선 좌우 안쪽 여백
 const FR_Y=[354.37,414.43,506.52,596.62];
 const FOOT_CUT=90; // 삭제된 적립 안내 문구 자리만큼 하단 상단 여백 축소
 const R_REG=()=> '400|'+F_REG, R_BOLD=()=> '700|'+F_BOLD, R_XB=()=> '800|'+F_XB;
@@ -561,9 +563,9 @@ function render(){
     c.drawImage(IMG.qtail,bx-17,by);
     drawVL(c,it.body,bx+30,by+30,32,22,bodyFont,'#000');
     // 답변
-    const ax=x0+959-it.gW, ay=it.aTop+22;
+    const ax=x0+BOX_R-it.gW, ay=it.aTop+22;
     c.save(); shadow(c,'rgba(160,160,160,.25)',0,10,12); c.fillStyle='#feffb8'; greetBubble(c,ax,ay,it.gW,it.gH); c.fill(); c.restore();
-    drawVL(c,it.greet,ax+32,ay+(it.gH-Math.max(1,it.greet.length)*32)/2,32,22,bodyFont,'#000');
+    drawVL(c,it.greet,ax+GP,ay+(it.gH-Math.max(1,it.greet.length)*32)/2,32,22,bodyFont,'#000');
     let yy=it.aTop+it.bTop;
     it.boxes.forEach(b=>{ c.save(); shadow(c,'rgba(160,160,160,.3)',0,10,10); c.fillStyle='#feffb8'; rrect(c,x0+228,yy,731,b.h,20); c.fill(); c.restore();
       drawVL(c,b.l,x0+228+33,yy+26,32,22,bodyFont,'#000'); yy+=b.h+30; });
@@ -802,7 +804,7 @@ const workFileName=n=>`중등고민있어요_${n}편_작업파일_${ymd()}.json`
 function packWork(){ return {app:'gomin-mid-generator',ver:1,issue:state.issue,stories:state.stories,cred:state.cred,note:state.note,disc:state.disc,footer:state.footer||null,updatedAt:Date.now()}; }
 $('#jsonFile').addEventListener('change',async e=>{ const f=e.target.files[0]; if(!f) return; e.target.value='';
   try{ const w=JSON.parse(await f.text()); if(!w||!Array.isArray(w.stories)||!w.stories.length) throw new Error('작업파일 형식 아님');
-    state={issue:w.issue??'',stories:fix2(w.stories),cred:w.cred||DEF_CRED,note:w.note||DEF_NOTE,disc:w.disc==null?null:w.disc,footer:w.footer||null}; FOOT_HIDE={}; buildForm(); changed(); toast(`작업파일 불러오기 완료 · ${state.issue}편`); }
+    state={issue:w.issue??'',stories:fix2(w.stories),cred:DEF_CRED,note:w.note||DEF_NOTE,disc:w.disc==null?null:w.disc,footer:w.footer||null}; FOOT_HIDE={}; buildForm(); changed(); toast(`작업파일 불러오기 완료 · ${state.issue}편`); }
   catch(err){ toast('불러오지 못함 : '+(err.message||err)); } });
 
 /* ---------- 저장 ---------- */
@@ -878,7 +880,7 @@ $('#helpBody').innerHTML=`
 (async()=>{
   await loadAssets(); await loadSavedFonts(); await detectFonts();
   const prev=loadState();
-  if(prev&&hasContent(prev)){ state=blankState(); state.issue=''; state.cred=prev.cred||DEF_CRED; state.disc=prev.disc==null?null:prev.disc; state.footer=prev.footer||null; }
+  if(prev&&hasContent(prev)){ state=blankState(); state.issue=''; state.cred=DEF_CRED; state.disc=prev.disc==null?null:prev.disc; state.footer=prev.footer||null; }
   else if(prev){ state=prev; state.issue=''; }
   state.cred=DEF_CRED; // 시작할 때 상담사 자격은 항상 기본 문구로 초기화
   state.stories=fix2(state.stories); buildForm(); render();
