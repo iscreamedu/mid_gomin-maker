@@ -56,7 +56,7 @@ input::placeholder,textarea::placeholder{color:#a9b8b9;opacity:1}
 .checks h2{font-size:15px;margin:0 0 4px;display:flex;align-items:center;gap:8px}
 .checks .sum{font-size:12.5px;color:var(--muted);margin-bottom:8px}
 .chk{display:flex;gap:9px;align-items:flex-start;padding:8px 6px;border-top:1px dashed #e3ecec;font-size:13px;line-height:1.5;cursor:pointer}
-.chk:hover{background:#f6fbfb}
+.chk:hover{background:#f6fbfb}::highlight(ckhit){background-color:#ffd84d;color:#000}
 .chk .ic{flex:0 0 20px;height:20px;border-radius:50%;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:1px}
 .chk.err .ic{background:#e5484d}.chk.warn .ic{background:#f5a524}.chk.ok .ic{background:#30a46c}.chk.info .ic{background:#3b82f6}
 .chk .tx{flex:1}.chk .tx small{display:block;color:var(--muted);font-size:12px;word-break:break-all}
@@ -686,7 +686,7 @@ function buildFootAcc(f){
   updFootState();
 }
 /* ---------- 점검 ---------- */
-let checked=false, lastCk=null, ckStale=false;
+let checked=false, lastCk=null, ckStale=false, ckSel=-1;
 function markStale(){ if(!checked||!lastCk||ckStale) return; ckStale=true; const el=$('#ckStale'); if(el) el.hidden=false; }
 function runChecks(){
   const R=[]; const add=(k,msg,tg,sel)=>R.push({k,msg,tg,sel});
@@ -716,17 +716,19 @@ function runChecks(){
   if(!ne&&!nw) R.unshift({k:'ok',msg:'이상 없음'});
   return {R,ne,nw};
 }
-function updChecks(fresh=true){ if(!checked||!$('#ckList')) return; if(fresh||!lastCk){ lastCk=runChecks(); ckStale=false; } const {R,ne,nw}=lastCk; $('#ckTitle').textContent='점검 결과'; $('#ckBtnT').textContent='다시 점검하기';
+function updChecks(fresh=true){ if(!checked||!$('#ckList')) return; if(fresh||!lastCk){ lastCk=runChecks(); ckStale=false; ckSel=-1; clearHit(); } const {R,ne,nw}=lastCk; $('#ckTitle').textContent='점검 결과'; $('#ckBtnT').textContent='다시 점검하기';
   $('#ckSum').innerHTML=(ne?`<span class="pill err">오류 ${ne}</span> `:'')+(nw?`<span class="pill warn">주의 ${nw}</span> `:'')+(!ne&&!nw?'<span class="pill ok">이상 없음</span>':'')+`<span id="ckStale" class="stale"${ckStale?'':' hidden'}>내용이 수정됨 · [다시 점검하기]를 눌러 결과 갱신</span>`;
   const ic={err:'!',warn:'!',ok:'✓',info:'i'};
   $('#ckList').innerHTML=R.map((r,i)=>`<div class="chk ${r.k}" data-i="${i}"><span class="ic">${ic[r.k]}</span><div class="tx">${esc(r.msg)}</div></div>`).join('');
-  $('#ckList').querySelectorAll('.chk').forEach(d=>d.onclick=()=>goTarget(R[+d.dataset.i].tg,R[+d.dataset.i].sel));
+  $('#ckList').querySelectorAll('.chk').forEach(d=>d.onclick=()=>{ ckSel=+d.dataset.i; goTarget(R[ckSel].tg,R[ckSel].sel); });
   return {ne,nw}; }
 function selectIn(el,re){ if(!el||!re||!el.isContentEditable) return; const w=document.createTreeWalker(el,NodeFilter.SHOW_TEXT); const nodes=[]; let txt=''; let n; while(n=w.nextNode()){ nodes.push([n,txt.length]); txt+=n.nodeValue; }
   const m=re.exec(txt); if(!m) return; const s=m.index, e=s+m[0].length; const pos=o=>{ for(let i=nodes.length-1;i>=0;i--) if(o>=nodes[i][1]) return [nodes[i][0],Math.min(o-nodes[i][1],nodes[i][0].nodeValue.length)]; return [nodes[0][0],0]; };
-  const [sn,so]=pos(s), [en,eo]=pos(e); const r=document.createRange(); r.setStart(sn,so); r.setEnd(en,eo); const sel=getSelection(); sel.removeAllRanges(); sel.addRange(r);
+  const [sn,so]=pos(s), [en,eo]=pos(e); const r=document.createRange(); r.setStart(sn,so); r.setEnd(en,eo); const sel=getSelection(); sel.removeAllRanges(); if(window.CSS&&CSS.highlights&&window.Highlight){ CSS.highlights.set('ckhit',new Highlight(r)); const c=document.createRange(); c.setStart(en,eo); c.collapse(true); sel.addRange(c); } else sel.addRange(r);
   if(el.scrollHeight>el.clientHeight+2){ const rr=r.getBoundingClientRect(), er=el.getBoundingClientRect(); el.scrollTop+= (rr.top-er.top)-el.clientHeight/2+rr.height/2; } }
-function goTarget(tg,re){ if(!tg) return; const el=document.querySelector(`[data-k="${tg}"]`); if(!el) return; { const d=el.closest('details'); if(d) d.open=true; } el.scrollIntoView({behavior:re?'auto':'smooth',block:'center'}); el.classList.add('flash'); setTimeout(()=>el.classList.remove('flash'),1500); if(el.focus&&el.tagName!=='BUTTON') el.focus({preventScroll:true}); if(re) selectIn(el,re); }
+function clearHit(){ if(window.CSS&&CSS.highlights) CSS.highlights.delete('ckhit'); }
+document.addEventListener('input',clearHit,true);
+function goTarget(tg,re){ clearHit(); if(!tg) return; const el=document.querySelector(`[data-k="${tg}"]`); if(!el) return; { const d=el.closest('details'); if(d) d.open=true; } el.scrollIntoView({behavior:re?'auto':'smooth',block:'center'}); el.classList.add('flash'); setTimeout(()=>el.classList.remove('flash'),1500); if(el.focus&&el.tagName!=='BUTTON') el.focus({preventScroll:true}); if(re) selectIn(el,re); }
 
 /* ---------- PPT 불러오기 ---------- */
 const NS_A='http://schemas.openxmlformats.org/drawingml/2006/main', NS_P='http://schemas.openxmlformats.org/presentationml/2006/main', NS_R='http://schemas.openxmlformats.org/officeDocument/2006/relationships';
